@@ -96,15 +96,17 @@ with tabs[0]:
     c1, c2 = st.columns([3, 1])
     with c1:
         markets = st.multiselect("שווקים לסריקה:", list(config.UNIVERSE.keys()),
-                                 default=list(config.UNIVERSE.keys()))
+                                 default=[list(config.UNIVERSE.keys())[0]])
     with c2:
         only_buys = st.checkbox("רק איתותי קנייה", value=False)
 
     symbols = tuple(t for m in markets for t in config.UNIVERSE[m])
+    run_scan = st.button("🔎 הרץ סריקה", type="primary", use_container_width=True)
+
     if not symbols:
-        st.info("בחר לפחות שוק אחד.")
-    else:
-        with st.spinner(f"סורק {len(symbols)} נכסים..."):
+        st.info("בחר לפחות שוק אחד ולחץ 'הרץ סריקה'.")
+    elif run_scan:
+        with st.spinner(f"סורק {len(symbols)} נכסים... (עשוי לקחת עד דקה)"):
             batch = get_batch(symbols, mode)
             regimes = {m: get_regime(m, mode) for m in markets}
             rows = []
@@ -123,32 +125,40 @@ with tabs[0]:
                     "R:R": round(res['rr'], 2),
                 })
         if not rows:
-            st.error("לא התקבלו נתונים. yfinance עלול לחסום זמנית — נסה שוב בעוד רגע.")
+            st.error("לא התקבלו נתונים. yfinance חוסם זמנית — נסה שוב בעוד דקה, "
+                     "או בחר פחות שווקים בבת אחת.")
+            st.session_state.pop("scan_table", None)
         else:
-            table = pd.DataFrame(rows).sort_values("ניקוד", ascending=False).reset_index(drop=True)
-            if only_buys:
-                table = table[table["איתות"].str.contains("קנייה")]
-            top = table.head(20)
+            st.session_state.scan_table = pd.DataFrame(rows)
 
-            def c_sig(v):
-                if "קנייה" in str(v): return "background-color:#14532d;color:#fff"
-                if "מכירה" in str(v): return "background-color:#7f1d1d;color:#fff"
-                return "background-color:#374151;color:#fff"
-            def c_score(v):
-                g = int(np.clip(v, 0, 100))
-                return f"background-color:rgba({255-int(g*2.55)},{int(g*2.55)},80,.35)"
+    if "scan_table" in st.session_state:
+        table = st.session_state.scan_table.sort_values("ניקוד", ascending=False).reset_index(drop=True)
+        if only_buys:
+            table = table[table["איתות"].str.contains("קנייה")]
+        top = table.head(20)
 
-            styled = (top.style
-                      .applymap(c_sig, subset=["איתות"])
-                      .applymap(c_score, subset=["ניקוד"])
-                      .format({"מחיר": "{:.2f}", "שינוי%": "{:+.2f}", "כניסה": "{:.2f}",
-                               "סטופ": "{:.2f}", "יעד1": "{:.2f}", "יעד2": "{:.2f}", "R:R": "{:.2f}"}))
-            st.dataframe(styled, use_container_width=True, height=730)
+        def c_sig(v):
+            if "קנייה" in str(v): return "background-color:#14532d;color:#fff"
+            if "מכירה" in str(v): return "background-color:#7f1d1d;color:#fff"
+            return "background-color:#374151;color:#fff"
 
-            csv = table.to_csv(index=False).encode("utf-8-sig")
-            st.download_button("⬇️ הורד טבלה מלאה (CSV)", csv, "screener.csv", "text/csv")
-            st.caption("ניקוד 70+ = שורי חזק · מתחת ל-30 = דובי · 50 = ניטרלי. "
-                       "**R:R** מעל 1.5 עדיף. הסטופ הוא נקודת היציאה אם התזה נכשלת.")
+        def c_score(v):
+            g = int(np.clip(v, 0, 100))
+            return f"background-color:rgba({255-int(g*2.55)},{int(g*2.55)},80,.35)"
+
+        styled = (top.style
+                  .map(c_sig, subset=["איתות"])
+                  .map(c_score, subset=["ניקוד"])
+                  .format({"מחיר": "{:.2f}", "שינוי%": "{:+.2f}", "כניסה": "{:.2f}",
+                           "סטופ": "{:.2f}", "יעד1": "{:.2f}", "יעד2": "{:.2f}", "R:R": "{:.2f}"}))
+        st.dataframe(styled, use_container_width=True, height=730)
+
+        csv = table.to_csv(index=False).encode("utf-8-sig")
+        st.download_button("⬇️ הורד טבלה מלאה (CSV)", csv, "screener.csv", "text/csv")
+        st.caption("ניקוד 70+ = שורי חזק · מתחת ל-30 = דובי · 50 = ניטרלי. "
+                   "**R:R** מעל 1.5 עדיף. הסטופ הוא נקודת היציאה אם התזה נכשלת.")
+    elif not run_scan:
+        st.info("👆 בחר שווקים ולחץ **הרץ סריקה** כדי לקבל את הדירוג.")
 
 # =============================================================================
 # טאב 2 — ניתוח נכס בודד
@@ -158,10 +168,18 @@ with tabs[1]:
                        index=config.ALL_TICKERS.index("NVDA"),
                        format_func=lambda t: f"{t} — {config.name_he(t)}")
     mkt = config.market_of(sym)
-    res = engine.analyze(get_one(sym, mode), mode, regime_bullish=get_regime(mkt, mode))
+    analyze_now = st.button("🔬 נתח נכס", type="primary", use_container_width=True)
 
-    if not res:
-        st.error("אין מספיק נתונים לנכס זה.")
+    res = None
+    if analyze_now:
+        with st.spinner(f"מנתח את {config.name_he(sym)}..."):
+            res = engine.analyze(get_one(sym, mode), mode, regime_bullish=get_regime(mkt, mode))
+        if res is None:
+            st.error("אין מספיק נתונים לנכס זה (yfinance עלול לחסום זמנית — נסה שוב).")
+
+    if res is None:
+        if not analyze_now:
+            st.info("👆 בחר נכס ולחץ **נתח נכס**.")
     else:
         col = "#10b981" if res['bullish'] else "#ef4444"
         st.markdown(f"""
