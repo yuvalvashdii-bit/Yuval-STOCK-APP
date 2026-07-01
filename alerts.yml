@@ -1,0 +1,28 @@
+name: התראות מניות (Telegram)
+
+on:
+  schedule:
+    # רץ כל 30 דקות בשעות מסחר ארה"ב (בקירוב), ימים א'-ו' — הזמן ב-UTC
+    - cron: "*/30 13-21 * * 1-5"
+  workflow_dispatch: {}   # מאפשר גם הרצה ידנית מכפתור ב-GitHub
+
+jobs:
+  run-alerts:
+    runs-on: ubuntu-latest
+    steps:
+      - name: משיכת הקוד
+        uses: actions/checkout@v4
+
+      - name: התקנת Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: התקנת ספריות
+        run: pip install -r requirements.txt
+
+      - name: הרצת בוט ההתראות
+        env:
+          TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
+          TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
+        run: python alerts_bot.py
