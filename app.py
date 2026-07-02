@@ -7,6 +7,7 @@ app.py — הממשק הראשי (Streamlit). 6 טאבים:
 """
 
 import io
+import re
 
 import numpy as np
 import pandas as pd
@@ -15,6 +16,7 @@ import streamlit as st
 import config
 import data as datamod
 import engine
+import midday as mid
 import optimizer
 import portfolio as pf
 
@@ -65,6 +67,10 @@ def get_regime(market, mode):
     bench = config.BENCHMARK.get(market)
     return engine.is_regime_bullish(datamod.fetch_one(bench, mode), mode) if bench else None
 
+@st.cache_data(ttl=300, show_spinner=False)
+def get_intraday(symbol, period, interval):
+    return datamod.fetch_intraday(symbol, period, interval)
+
 # =============================================================================
 # כותרת + אזהרות
 # =============================================================================
@@ -87,7 +93,8 @@ with top1:
                     horizontal=True)
 
 tabs = st.tabs(["🔎 סורק שוק", "🔬 ניתוח נכס", "📊 בק-טסט",
-                "💼 התיק שלי", "🧮 מחשבון סיכון", "🔔 התראות", "🧪 כיול חכם"])
+                "💼 התיק שלי", "🧮 מחשבון סיכון", "🔔 התראות", "🧪 כיול חכם",
+                "🍵 מסחר צהריים ת\"א"])
 
 # =============================================================================
 # טאב 1 — סורק שוק (השורה התחתונה)
@@ -215,7 +222,22 @@ with tabs[1]:
         st.markdown("<h4 style='color:#f1f5f9;'>תרומת כל פרמטר לניקוד:</h4>", unsafe_allow_html=True)
         st.markdown(f'<div class="circles-wrapper">{circles}</div>', unsafe_allow_html=True)
 
-        st.markdown("<h4 style='color:#f1f5f9;'>🎯 תוכנית מסחר (לונג):</h4>", unsafe_allow_html=True)
+        # --- הסבר מילולי: למה ההיגיון אומר לקנות / למכור / ניטרלי ---
+        st.markdown("<h4 style='color:#f1f5f9;'>🧠 למה? ההיגיון מאחורי ההחלטה:</h4>", unsafe_allow_html=True)
+        exp_lines, verdict = engine.explain(res)
+        _b = lambda s: re.sub(r"\*\*(.+?)\*\*", r"<b>\1</b>", s)  # **טקסט** -> מודגש
+        exp_html = "".join(
+            f'<div style="margin:4px 0; color:#cbd5e1;">{emoji}&nbsp; {_b(txt)}</div>'
+            for emoji, txt in exp_lines)
+        st.markdown(f'<div style="background:#1e293b; border:1px solid #334155; border-radius:8px; '
+                    f'padding:14px 18px;">{exp_html}</div>', unsafe_allow_html=True)
+        vcol = "#10b981" if res['score'] >= config.SCORE_BUY else \
+               ("#ef4444" if res['score'] <= config.SCORE_SELL else "#94a3b8")
+        st.markdown(f'<div style="background:#0f172a; border-right:5px solid {vcol}; padding:12px 16px; '
+                    f'border-radius:8px; margin-top:10px; color:#f1f5f9;">{_b(verdict)}</div>',
+                    unsafe_allow_html=True)
+
+        st.markdown("<h4 style='color:#f1f5f9; margin-top:18px;'>🎯 תוכנית מסחר (לונג):</h4>", unsafe_allow_html=True)
         m1, m2, m3, m4 = st.columns(4)
         m1.metric("כניסה", f"{res['entry']:.2f}")
         m2.metric("סטופ-לוס", f"{res['stop']:.2f}", f"{(res['stop']/res['price']-1)*100:.1f}%")
@@ -302,8 +324,10 @@ with tabs[2]:
 # =============================================================================
 with tabs[3]:
     st.subheader("💼 מעקב תיק — רווח/הפסד ומתי למכור")
+    # טעינה חד-פעמית מהדיסק — כך המניות נשמרות בין הפעלות
     if "holdings" not in st.session_state:
-        st.session_state.holdings = []
+        st.session_state.holdings = pf.load_holdings()
+    st.caption(f"✅ התיק נשמר אוטומטית — {pf.storage_status()}")
 
     with st.form("add_pos", clear_on_submit=True):
         f1, f2, f3, f4 = st.columns(4)
@@ -319,13 +343,15 @@ with tabs[3]:
             add = st.form_submit_button("➕ הוסף", use_container_width=True)
         if add:
             st.session_state.holdings.append({"ticker": h_sym, "entry_price": h_price, "qty": h_qty})
+            pf.save_holdings(st.session_state.holdings)   # שמירה מיידית
 
     up = st.file_uploader("או טען תיק מקובץ CSV (עמודות: ticker, entry_price, qty)", type="csv")
     if up is not None:
         try:
             imp = pd.read_csv(up)
             st.session_state.holdings = imp[["ticker", "entry_price", "qty"]].to_dict("records")
-            st.success(f"נטענו {len(st.session_state.holdings)} פוזיציות.")
+            pf.save_holdings(st.session_state.holdings)
+            st.success(f"נטענו ונשמרו {len(st.session_state.holdings)} פוזיציות.")
         except Exception:
             st.error("קובץ לא תקין — ודא עמודות ticker, entry_price, qty.")
 
@@ -349,11 +375,26 @@ with tabs[3]:
         pdf = pd.DataFrame(rows)
         st.metric("רווח/הפסד כולל בתיק", f"{total:+,.2f}")
         st.dataframe(pdf, use_container_width=True, height=360)
-        st.download_button("⬇️ שמור תיק (CSV)",
+
+        # מחיקת פוזיציה בודדת
+        del_col1, del_col2 = st.columns([3, 1])
+        with del_col1:
+            to_del = st.selectbox("מחק פוזיציה:", range(len(st.session_state.holdings)),
+                                  format_func=lambda i: f"{st.session_state.holdings[i]['ticker']} "
+                                  f"({st.session_state.holdings[i]['qty']} יח')")
+        with del_col2:
+            st.write(" ")
+            if st.button("🗑️ מחק", use_container_width=True):
+                st.session_state.holdings.pop(to_del)
+                pf.save_holdings(st.session_state.holdings)
+                st.rerun()
+
+        st.download_button("⬇️ גיבוי התיק (CSV)",
                            pd.DataFrame(st.session_state.holdings).to_csv(index=False).encode("utf-8-sig"),
                            "my_portfolio.csv", "text/csv")
-        if st.button("🗑️ נקה תיק"):
+        if st.button("🗑️ נקה תיק כולו"):
             st.session_state.holdings = []
+            pf.save_holdings([])
             st.rerun()
 
 # =============================================================================
@@ -401,7 +442,7 @@ with tabs[5]:
 
 **איזה מניות במעקב?** ערוך את הקובץ `watchlist.json` ב-repo (רשימת הטיקרים).
 """)
-    st.code('{ "tickers": ["NVDA", "AAPL", "TSLA", "TA125.TA", "BTC-USD", "SMH"] }', language="json")
+    st.code('{ "tickers": ["NVDA", "AAPL", "TSLA", "^TA125.TA", "BTC-USD", "SMH"] }', language="json")
     st.info("התזמון בקובץ `.github/workflows/alerts.yml` — ברירת מחדל: כל 30 דק' בשעות מסחר ארה\"ב.")
 
 # =============================================================================
@@ -459,3 +500,75 @@ with tabs[6]:
                 "אך בדיוק הגבוה ביותר — במסך הסורק זה מתורגם ל'פעל רק כשהניקוד קיצוני' (70+ לקנייה, 30- למכירה).")
         st.caption("⚠️ תוצאות משתנות בין סלים ותקופות. זו הערכה כנה, לא הבטחה. "
                    "אין אסטרטגיה טכנית שמנבאת ב-90%.")
+
+# =============================================================================
+# טאב 8 — מסחר צהריים ת"א (Mean Reversion בשעות הרגיעה)
+# =============================================================================
+with tabs[7]:
+    st.subheader("🍵 מסחר צהריים ת\"א 35 — לונג/שורט בשעות הרגיעה")
+    st.markdown("""
+בשעות אמצע היום הנזילות יורדת והשוק **חוזר לממוצע** (במקום לפרוץ). המנוע מזהה מתי המחיר
+נמתח קיצוני מהרצועות ומסמן **לונג** (צפי לתיקון מעלה) או **שורט** (צפי לתיקון מטה),
+לתפיסת תנועה קטנה של 0.5%–1%. משתמש ברצועות בולינג'ר(20,2) + RSI(9) + פילטר ADX<25.
+""")
+    st.error("⚠️ **קרא לפני שימוש:** (1) הנתונים מושהים ~15 דק' — לביצוע חי צריך פיד "
+             "בזמן אמת מהברוקר. (2) ת\"א 35 הוא מדד — סוחרים אותו דרך **תעודת סל / חוזה עתידי / CFD** "
+             "שמאפשר לונג ושורט. (3) חובה לקזז עמלות ומרווח. (4) היסטוריית 5-דק' מוגבלת (~חודש) — "
+             "הבק-טסט מכוון-כיוון, לא הוכחה. זה כלי החלטה, לא בוט אוטומטי.")
+
+    mc1, mc2, mc3, mc4 = st.columns(4)
+    with mc1:
+        mid_sym = st.selectbox("נכס", ["TA35.TA", "^TA125.TA", "TEVA.TA", "NVMI.TA", "ICL.TA"],
+                               format_func=lambda t: config.name_he(t))
+    with mc2:
+        win_range = st.slider("חלון הצהריים (שעון ישראל)", 10.0, 17.0, (13.0, 16.0), 0.5)
+    with mc3:
+        tp = st.number_input("יעד רווח %", 0.3, 2.0, 0.6, 0.1)
+    with mc4:
+        sl = st.number_input("סטופ %", 0.2, 2.0, 0.4, 0.1)
+
+    if st.button("🍵 בדוק איתות + הרץ בק-טסט", type="primary", use_container_width=True):
+        with st.spinner("מושך נתוני 5 דקות ומחשב..."):
+            idf = get_intraday(mid_sym, "1mo", "5m")
+        if idf is None:
+            st.error("לא התקבלו נתונים תוך-יומיים לנכס זה. נסה שוב או בחר נכס אחר.")
+        else:
+            st.session_state.mid_data = idf
+            st.session_state.mid_params = (mid_sym, win_range, tp, sl)
+
+    if "mid_data" in st.session_state:
+        idf = st.session_state.mid_data
+        m_sym, m_win, m_tp, m_sl = st.session_state.mid_params
+        sig = mid.current_signal(idf, win=m_win, tp_pct=m_tp, sl_pct=m_sl)
+        if sig:
+            colr = {"LONG": "#22c55e", "SHORT": "#ef4444", "WAIT": "#6b7280"}[sig["signal"]]
+            label = {"LONG": "🟢 לונג (קנייה — צפי לתיקון מעלה)",
+                     "SHORT": "🔴 שורט (מכירה בחסר — צפי לתיקון מטה)",
+                     "WAIT": "⚪ המתנה — אין איתות כרגע"}[sig["signal"]]
+            st.markdown(f"""
+            <div style="background:#0f172a; border:2px solid {colr}; border-radius:10px; padding:16px; margin-top:8px;">
+              <div style="font-size:1.5rem; font-weight:700; color:{colr};">{label}</div>
+              <div style="color:#cbd5e1; margin-top:6px;">{sig['reason']}</div>
+              <div style="color:#94a3b8; margin-top:4px; font-size:0.9rem;">
+                מחיר {sig['price']:.1f} · RSI(9) {sig['rsi9']:.0f} · ADX {sig['adx']:.0f} · שעה {int(sig['hour'])}:{int((sig['hour']%1)*60):02d}</div>
+            </div>
+            """, unsafe_allow_html=True)
+            if sig["signal"] in ("LONG", "SHORT"):
+                s1, s2, s3 = st.columns(3)
+                s1.metric("כניסה", f"{sig['price']:.1f}")
+                s2.metric("יעד", f"{sig['target']:.1f}", f"{m_tp:+.1f}%")
+                s3.metric("סטופ", f"{sig['stop']:.1f}", f"{-m_sl:.1f}%")
+                st.caption("צא ביעד, בסטופ, או אחרי ~75 דקות (15 נרות) אם שום דבר לא קרה.")
+
+        bt = mid.backtest(idf, win=m_win, tp_pct=m_tp, sl_pct=m_sl)
+        if bt and bt["trades"] > 0:
+            st.markdown("#### 📊 בק-טסט על החודש האחרון (אחרי עלויות):")
+            b1, b2, b3, b4 = st.columns(4)
+            b1.metric("עסקאות", bt["trades"])
+            b2.metric("אחוז הצלחה", f"{bt['win_rate']:.0f}%")
+            b3.metric("רווח מצטבר", f"{bt['total']:+.2f}%")
+            b4.metric("ממוצע לעסקה", f"{bt['avg']:+.3f}%")
+            st.caption(f"הטוב ביותר: {bt['best']:+.2f}% · הגרוע ביותר: {bt['worst']:+.2f}%. "
+                       f"⚠️ מדגם קטן ({bt['trades']} עסקאות) — לא מסקנה סטטיסטית חזקה.")
+        elif bt:
+            st.info("לא נמצאו עסקאות בחלון/פרמטרים שנבחרו בחודש האחרון. נסה חלון רחב יותר או ספים אחרים.")

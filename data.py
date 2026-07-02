@@ -51,6 +51,19 @@ def fetch_one(symbol, mode="swing", retries=3):
     return None
 
 
+def fetch_intraday(symbol, period="1mo", interval="5m"):
+    """נתונים תוך-יומיים בתדירות גבוהה (למסחר צהריים). 5m זמין עד ~60 יום."""
+    for attempt in range(3):
+        try:
+            df = _clean(_download(symbol, period, interval))
+            if df is not None and len(df) >= 50:
+                return df
+        except Exception:
+            pass
+        time.sleep(1.5 * (attempt + 1))
+    return None
+
+
 def fetch_batch(symbols, mode="swing"):
     """טעינה של רשימת נכסים. קודם ניסיון מרוכז אחד; מה שחסר — נמשך בעדינות אחד-אחד."""
     cfg = MODE_SETTINGS.get(mode, MODE_SETTINGS["swing"])

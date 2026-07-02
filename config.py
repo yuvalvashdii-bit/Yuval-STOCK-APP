@@ -27,7 +27,7 @@ UNIVERSE = {
         "AMD", "AVGO", "PLTR", "COIN", "JPM", "GS", "V", "QCOM", "CHKP", "NICE",
     ],
     "ישראל (בורסת ת\"א)": [
-        "TA35.TA", "TA125.TA",
+        "TA35.TA", "^TA125.TA",
         "LUMI.TA", "POLI.TA", "MZTF.TA", "DSCT.TA", "TEVA.TA",
         "ESLT.TA", "NVMI.TA", "CAMT.TA", "PHOE.TA", "ICL.TA",
     ],
@@ -43,7 +43,7 @@ UNIVERSE = {
 # מדד הייחוס לכל שוק — לבדיקת "מגמת השוק הכללית" (Market Regime)
 BENCHMARK = {
     "מניות ומדדי ארה\"ב": "SPY",
-    "ישראל (בורסת ת\"א)": "TA125.TA",
+    "ישראל (בורסת ת\"א)": "^TA125.TA",
     "קריפטו": "BTC-USD",
     "סקטורים / ETF": "SPY",
 }
@@ -56,7 +56,7 @@ NAMES_HE = {
     "AMD": "AMD", "AVGO": "ברודקום", "PLTR": "פלנטיר", "COIN": "קוינבייס",
     "JPM": "ג'יי.פי מורגן", "GS": "גולדמן זאקס", "V": "ויזה", "QCOM": "קוואלקום",
     "CHKP": "צ'ק פוינט", "NICE": "נייס",
-    "TA35.TA": "ת\"א 35", "TA125.TA": "ת\"א 125", "LUMI.TA": "בנק לאומי",
+    "TA35.TA": "ת\"א 35", "^TA125.TA": "ת\"א 125", "LUMI.TA": "בנק לאומי",
     "POLI.TA": "בנק הפועלים", "MZTF.TA": "מזרחי טפחות", "DSCT.TA": "בנק דיסקונט",
     "TEVA.TA": "טבע", "ESLT.TA": "אלביט מערכות", "NVMI.TA": "נובה",
     "CAMT.TA": "כמטק", "PHOE.TA": "הפניקס", "ICL.TA": "כיל",

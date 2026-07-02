@@ -1,4 +1,4 @@
 {
   "_comment": "רשימת המניות שמנוע ההתראות עוקב אחריהן. הוסף/הסר טיקרים כרצונך.",
-  "tickers": ["NVDA", "AAPL", "TSLA", "TA125.TA", "BTC-USD", "SMH"]
+  "tickers": ["NVDA", "AAPL", "TSLA", "^TA125.TA", "BTC-USD", "SMH"]
 }

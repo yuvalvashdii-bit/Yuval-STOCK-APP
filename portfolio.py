@@ -1,9 +1,81 @@
 # -*- coding: utf-8 -*-
 """
-portfolio.py — לוגיקת תיק (רווח/הפסד + דגל מכירה) ומחשבון גודל פוזיציה.
+portfolio.py — לוגיקת תיק (רווח/הפסד + דגל מכירה), שמירה/טעינה, ומחשבון פוזיציה.
 """
 
+import os
+
+import pandas as pd
+
 import config
+
+# הקובץ שבו נשמר התיק בין הפעלות (על דיסק השרת) — גיבוי מקומי
+PORTFOLIO_FILE = os.path.join(os.path.dirname(__file__), "portfolio_data.csv")
+_COLS = ["ticker", "entry_price", "qty"]
+
+
+# ------------------------------------------------------------------
+# Google Sheets (שמירה קבועה שלא מתאפסת גם אחרי עדכון קוד) — אופציונלי
+# מופעל רק אם הוגדרו הסודות ב-Streamlit; אחרת נופל אוטומטית ל-CSV מקומי.
+# ------------------------------------------------------------------
+def _gsheet():
+    try:
+        import streamlit as st
+        if "gcp_service_account" not in st.secrets or "gsheet_key" not in st.secrets:
+            return None
+        import gspread
+        from google.oauth2.service_account import Credentials
+        creds = Credentials.from_service_account_info(
+            dict(st.secrets["gcp_service_account"]),
+            scopes=["https://www.googleapis.com/auth/spreadsheets"])
+        gc = gspread.authorize(creds)
+        return gc.open_by_key(st.secrets["gsheet_key"]).sheet1
+    except Exception:
+        return None
+
+
+def storage_status():
+    """טקסט לתצוגה: איזה מנגנון שמירה פעיל."""
+    return ("☁️ Google Sheets — שמירה קבועה (לא מתאפסת)" if _gsheet() is not None
+            else "💾 שמירה מקומית — נשמרת בין כניסות, אך עלולה להתאפס בעדכון קוד")
+
+
+def _load_local():
+    if os.path.exists(PORTFOLIO_FILE):
+        try:
+            return pd.read_csv(PORTFOLIO_FILE)[_COLS].to_dict("records")
+        except Exception:
+            return []
+    return []
+
+
+def load_holdings():
+    """טוען את התיק — קודם מ-Google Sheets אם מוגדר, אחרת מהדיסק המקומי."""
+    sh = _gsheet()
+    if sh is not None:
+        try:
+            recs = sh.get_all_records()
+            return [{"ticker": str(r["ticker"]),
+                     "entry_price": float(r["entry_price"]),
+                     "qty": float(r["qty"])} for r in recs if r.get("ticker")]
+        except Exception:
+            pass
+    return _load_local()
+
+
+def save_holdings(holdings):
+    """שומר את התיק — ל-Google Sheets אם מוגדר, ותמיד גם לגיבוי מקומי."""
+    sh = _gsheet()
+    if sh is not None:
+        try:
+            sh.clear()
+            sh.update([_COLS] + [[h["ticker"], h["entry_price"], h["qty"]] for h in holdings])
+        except Exception:
+            pass
+    try:
+        pd.DataFrame(holdings, columns=_COLS).to_csv(PORTFOLIO_FILE, index=False)
+    except Exception:
+        pass
 
 
 def position_size(account, risk_pct, entry, stop):
