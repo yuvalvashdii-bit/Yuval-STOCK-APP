@@ -15,6 +15,7 @@ import streamlit as st
 import config
 import data as datamod
 import engine
+import optimizer
 import portfolio as pf
 
 try:
@@ -86,7 +87,7 @@ with top1:
                     horizontal=True)
 
 tabs = st.tabs(["🔎 סורק שוק", "🔬 ניתוח נכס", "📊 בק-טסט",
-                "💼 התיק שלי", "🧮 מחשבון סיכון", "🔔 התראות"])
+                "💼 התיק שלי", "🧮 מחשבון סיכון", "🔔 התראות", "🧪 כיול חכם"])
 
 # =============================================================================
 # טאב 1 — סורק שוק (השורה התחתונה)
@@ -402,3 +403,59 @@ with tabs[5]:
 """)
     st.code('{ "tickers": ["NVDA", "AAPL", "TSLA", "TA125.TA", "BTC-USD", "SMH"] }', language="json")
     st.info("התזמון בקובץ `.github/workflows/alerts.yml` — ברירת מחדל: כל 30 דק' בשעות מסחר ארה\"ב.")
+
+# =============================================================================
+# טאב 7 — כיול חכם (Optimizer): איזה שילוב מנבא הכי טוב, ומה הדיוק האמיתי
+# =============================================================================
+with tabs[6]:
+    st.subheader("🧪 כיול חכם — כמה באמת אפשר לנבא?")
+    st.markdown("""
+המנוע לומד מההיסטוריה את **המשקלים הטובים ביותר** לאינדיקטורים, ובודק את הדיוק על
+**תקופה שהוא לא ראה באימון** (Out-of-Sample) — כדי שהמספר יהיה אמיתי ולא "מיופה".
+נבדקות 3 רמות סיכון ו-2 אופקי זמן.
+""")
+    st.warning("💡 **חשוב:** דיוק ריאלי הוא ~50%-60%. אם תראה 'דיוק אימון' גבוה אבל "
+               "'דיוק מבחן' נמוך — זה בדיוק ה-Overfitting שמפילים סוחרים. המספר הקובע הוא **דיוק המבחן**.")
+
+    ca, cb = st.columns([3, 1])
+    with ca:
+        cal_market = st.selectbox("על איזה סל לכייל? (איגום כמה מניות = תוצאה אמינה יותר)",
+                                  list(config.UNIVERSE.keys()))
+    with cb:
+        max_assets = st.slider("כמה מניות מהסל", 3, 12, 6)
+
+    if st.button("🧪 הרץ כיול היסטורי", type="primary", use_container_width=True):
+        syms = config.UNIVERSE[cal_market][:max_assets]
+        with st.spinner(f"מכייל על {len(syms)} נכסים... (עשוי לקחת עד דקה-שתיים)"):
+            batch = get_batch(tuple(syms), "swing")
+            datasets = []
+            used = []
+            for s in syms:
+                df = batch.get(s)
+                if df is not None and len(df) > 250:
+                    X, _, cv = optimizer.subsignal_matrix(df)
+                    datasets.append((X, cv)); used.append(s)
+            if not datasets:
+                st.error("לא התקבלו מספיק נתונים — נסה שוב או בחר סל אחר.")
+            else:
+                st.session_state.cal_result = optimizer.run_full(datasets)
+                st.session_state.cal_used = used
+
+    if "cal_result" in st.session_state:
+        st.caption(f"כויל על: {', '.join(config.name_he(s) for s in st.session_state.cal_used)}")
+        for hname, r in st.session_state.cal_result.items():
+            st.markdown(f"### ⏱️ אופק: {hname}")
+            st.caption(f"דיוק אימון (מיופה, לא אמין): {r['train_accuracy']:.1f}% · "
+                       f"שורות מבחן: {r['n_test']}")
+            rows = []
+            for tier, t in r['tiers'].items():
+                if t:
+                    rows.append({"רמת סיכון": tier, "דיוק מבחן (אמיתי)": f"{t['accuracy']:.1f}%",
+                                 "מס' איתותים": t['n_signals'], "כיסוי": f"{t['coverage']:.0f}%",
+                                 "תשואה ממוצעת לקנייה": f"{t['avg_buy_ret']:+.2f}%"})
+            if rows:
+                st.table(pd.DataFrame(rows))
+        st.info("**איך להשתמש:** בחר את רמת הסיכון שמתאימה לך. השמרנית נותנת פחות איתותים "
+                "אך בדיוק הגבוה ביותר — במסך הסורק זה מתורגם ל'פעל רק כשהניקוד קיצוני' (70+ לקנייה, 30- למכירה).")
+        st.caption("⚠️ תוצאות משתנות בין סלים ותקופות. זו הערכה כנה, לא הבטחה. "
+                   "אין אסטרטגיה טכנית שמנבאת ב-90%.")
