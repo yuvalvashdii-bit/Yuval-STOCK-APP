@@ -62,8 +62,10 @@ html, body, [data-testid="stSidebar"], .stApp{
 /* ---------- טיפוגרפיה ---------- */
 h1,h2,h3,h4{ font-family:'Rubik',sans-serif !important; letter-spacing:-.01em; color:var(--text); }
 h1{ font-weight:900; } h2,h3{ font-weight:800; } h4{ font-weight:700; }
-/* מרכוז כל כותרות המסכים (h1/h2/h3). כותרות-משנה קטנות (h4) נשארות בצד */
-[data-testid="stHeading"], .stHeading, h1, h2, h3{ text-align:center !important; }
+/* מרכוז רק כותרות המסכים הגדולות (h1/h2/h3) */
+h1, h2, h3{ text-align:center !important; }
+/* כל שאר הטקסט — כותרות-משנה (h4) וגוף — מיושר לימין */
+h4, h5, h6{ text-align:right !important; }
 .stApp p, .stApp li, label, .stMarkdown{ font-family:'Heebo',sans-serif; }
 
 /* ---------- טאבים ---------- */
