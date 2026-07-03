@@ -40,7 +40,7 @@ st.markdown("""
 :root{
   --bg:#0a0e14; --bg2:#0e131b; --panel:#141b25; --panel2:#1a2230;
   --border:#242f3e; --border2:#2f3d4f;
-  --text:#e9eef5; --muted:#8a97a8; --dim:#5f6b7a;
+  --text:#e9eef5; --muted:#aab6c6; --dim:#8592a3;
   --gold:#e8b34b; --gold2:#caa23e; --goldsoft:rgba(232,179,75,.12);
   --bull:#26d07c; --bear:#f2544b; --neutral:#7c8aa0;
 }
@@ -113,8 +113,18 @@ h1{ font-weight:900; } h2,h3{ font-weight:800; } h4{ font-weight:700; }
 /* ---------- שדות קלט ---------- */
 [data-baseweb="select"] > div, .stNumberInput input, .stTextInput input, [data-baseweb="input"]{
   background:var(--panel) !important; border-color:var(--border) !important; border-radius:10px !important;
+  color:var(--text) !important;
 }
 [data-baseweb="select"] > div:focus-within{ border-color:var(--gold) !important; }
+/* מספרים: כפתורי +/- ומיכל — כהים במקום לבן */
+.stNumberInput [data-baseweb="input"], [data-testid="stNumberInputContainer"]{ background:var(--panel) !important; }
+.stNumberInput button{ background:var(--panel2) !important; color:var(--text) !important; border-color:var(--border) !important; }
+
+/* ---------- קריאוּת טקסט: תוויות, רדיו, כיתובים ---------- */
+label, [data-testid="stWidgetLabel"] p, [data-testid="stWidgetLabel"] label{ color:var(--text) !important; }
+.stRadio label p, .stCheckbox label p, [role="radiogroup"] label{ color:var(--text) !important; }
+[data-testid="stCaptionContainer"], [data-testid="stCaptionContainer"] p, small{ color:var(--muted) !important; }
+[data-testid="stMarkdownContainer"] p{ color:#d6dee8; }
 
 /* ---------- טבלאות (נשארות LTR) ---------- */
 [data-testid="stDataFrame"], [data-testid="stTable"]{
@@ -179,16 +189,16 @@ st.markdown("""
        background:linear-gradient(90deg,transparent,#e8b34b,transparent);"></div>
   <div style="position:absolute; top:-40px; left:-30px; width:200px; height:200px;
        background:radial-gradient(circle,rgba(232,179,75,.14),transparent 70%);"></div>
-  <div style="display:flex; align-items:center; gap:14px; position:relative;">
-    <div style="font-size:2rem; filter:drop-shadow(0 0 12px rgba(232,179,75,.5));">📈</div>
-    <div>
-      <h1 style="margin:0; font-size:2.05rem; line-height:1.1; letter-spacing:-.02em;
-          background:linear-gradient(90deg,#f5f8fc,#e8b34b); -webkit-background-clip:text;
+  <div style="display:flex; flex-direction:column; align-items:center; gap:6px; position:relative; text-align:center;">
+    <div style="display:flex; align-items:center; justify-content:center; gap:12px;">
+      <span style="font-size:1.9rem; filter:drop-shadow(0 0 12px rgba(232,179,75,.5));">📈</span>
+      <h1 style="margin:0; font-size:2.15rem; line-height:1.1; letter-spacing:-.02em;
+          background:linear-gradient(90deg,#e8b34b,#f5f8fc,#e8b34b); -webkit-background-clip:text;
           -webkit-text-fill-color:transparent; background-clip:text;">מרכז המסחר החכם</h1>
-      <p style="margin:5px 0 0; color:#8a97a8; font-size:1rem;">
-        סורק ומדרג · ניתוח מנומק · בק-טסט כן · רמות כניסה ויציאה &nbsp;·&nbsp;
-        <span style="color:#e8b34b;">ארה"ב · ישראל · קריפטו</span></p>
     </div>
+    <p style="margin:0; color:#aab6c6; font-size:1rem;">
+      סורק ומדרג · ניתוח מנומק · בק-טסט כן · רמות כניסה ויציאה &nbsp;·&nbsp;
+      <span style="color:#e8b34b;">ארה"ב · ישראל · קריפטו</span></p>
   </div>
 </div>
 """, unsafe_allow_html=True)
