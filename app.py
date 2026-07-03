@@ -192,9 +192,9 @@ st.markdown("""
   <div style="display:flex; flex-direction:column; align-items:center; gap:6px; position:relative; text-align:center;">
     <div style="display:flex; align-items:center; justify-content:center; gap:12px;">
       <span style="font-size:1.9rem; filter:drop-shadow(0 0 12px rgba(232,179,75,.5));">📈</span>
-      <h1 style="margin:0; font-size:2.15rem; line-height:1.1; letter-spacing:-.02em;
+      <h1 style="margin:0; font-size:2.0rem; line-height:1.12; letter-spacing:-.02em;
           background:linear-gradient(90deg,#e8b34b,#f5f8fc,#e8b34b); -webkit-background-clip:text;
-          -webkit-text-fill-color:transparent; background-clip:text;">מרכז המסחר החכם</h1>
+          -webkit-text-fill-color:transparent; background-clip:text;">מרכז המסחר החכם של יובל ושדי</h1>
     </div>
     <p style="margin:0; color:#aab6c6; font-size:1rem;">
       סורק ומדרג · ניתוח מנומק · בק-טסט כן · רמות כניסה ויציאה &nbsp;·&nbsp;
@@ -209,9 +209,11 @@ st.warning("⚠️ **כלי עזר לניתוח טכני — לא ייעוץ ה�
 # בקרות עליונות
 top1, top2 = st.columns([1, 3])
 with top1:
-    mode = st.radio("מצב מסחר:", ["swing", "intraday"],
-                    format_func=lambda m: "סווינג (יומי)" if m == "swing" else "תוך-יומי (15 דק')",
-                    horizontal=True)
+    _mode_labels = {"swing": "יומי (סווינג · ימים-שבועות)",
+                    "weekly": "שבועי (טווח ארוך · שבועות-חודשים)",
+                    "intraday": "תוך-יומי (15 דק')"}
+    mode = st.radio("מצב מסחר:", ["swing", "weekly", "intraday"],
+                    format_func=lambda m: _mode_labels[m], horizontal=True)
 
 tabs = st.tabs(["🔎 סורק שוק", "🔬 ניתוח נכס", "📊 בק-טסט",
                 "💼 התיק שלי", "🧮 מחשבון סיכון", "🔔 התראות", "🧪 כיול חכם",
@@ -221,12 +223,14 @@ tabs = st.tabs(["🔎 סורק שוק", "🔬 ניתוח נכס", "📊 בק-ט�
 # טאב 1 — סורק שוק (השורה התחתונה)
 # =============================================================================
 with tabs[0]:
-    st.subheader("🏆 השורה התחתונה — דירוג ההזדמנויות")
+    st.markdown("<h3 style='text-align:center;'>🏆 השורה התחתונה — דירוג ההזדמנויות</h3>",
+                unsafe_allow_html=True)
     c1, c2 = st.columns([3, 1])
     with c1:
         markets = st.multiselect("שווקים לסריקה:", list(config.UNIVERSE.keys()),
                                  default=[list(config.UNIVERSE.keys())[0]])
     with c2:
+        st.markdown("<div style='height:30px'></div>", unsafe_allow_html=True)  # יישור לגובה שדה הבחירה
         only_buys = st.checkbox("רק איתותי קנייה", value=False)
 
     symbols = tuple(t for m in markets for t in config.UNIVERSE[m])

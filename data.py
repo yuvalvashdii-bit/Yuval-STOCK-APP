@@ -12,8 +12,9 @@ import yfinance as yf
 
 # הגדרות לכל מצב: תקופה + אינטרוול
 MODE_SETTINGS = {
-    "swing":    dict(period="2y", interval="1d"),
-    "intraday": dict(period="5d", interval="15m"),
+    "swing":    dict(period="2y", interval="1d"),    # נר=יום, ניתוח מגמה על פני שבועות
+    "weekly":   dict(period="5y", interval="1wk"),   # נר=שבוע, טווח ארוך (שבועות-חודשים)
+    "intraday": dict(period="5d", interval="15m"),   # נר=15 דק', תוך-יומי
 }
 
 
