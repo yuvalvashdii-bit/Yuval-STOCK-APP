@@ -35,19 +35,116 @@ st.set_page_config(page_title="סורק מניות ומדדים", layout="wide",
 
 st.markdown("""
 <style>
-@import url('https://fonts.googleapis.com/css2?family=Assistant:wght@300;400;600;700&display=swap');
-html, body, [data-testid="stSidebar"], .stApp { font-family:'Assistant',sans-serif; direction:rtl; text-align:right; }
-[data-testid="stDataFrame"], [data-testid="stTable"] { direction:ltr; }
-.stTabs [data-baseweb="tab-list"] { direction:rtl; }
-.circles-wrapper { display:flex; flex-wrap:wrap; justify-content:center; gap:18px; margin:16px 0; }
-.metric-circle { width:120px; height:120px; border-radius:50%; display:flex; flex-direction:column;
-    justify-content:center; align-items:center; text-align:center; box-shadow:0 6px 14px rgba(0,0,0,.18); }
-.circle-label { font-size:.74rem; font-weight:600; margin-bottom:3px; }
-.circle-value { font-size:1.1rem; font-weight:700; }
-.circle-status { font-size:.66rem; opacity:.9; padding:0 5px; }
-.circle-bullish { background:radial-gradient(circle,#22c55e,#15803d); color:#fff; border:4px solid #4ade80; }
-.circle-bearish { background:radial-gradient(circle,#ef4444,#b91c1c); color:#fff; border:4px solid #f87171; }
-.circle-neutral { background:radial-gradient(circle,#6b7280,#374151); color:#fff; border:4px solid #9ca3af; }
+@import url('https://fonts.googleapis.com/css2?family=Rubik:wght@500;600;700;800;900&family=Heebo:wght@300;400;500;600;700&display=swap');
+
+:root{
+  --bg:#0a0e14; --bg2:#0e131b; --panel:#141b25; --panel2:#1a2230;
+  --border:#242f3e; --border2:#2f3d4f;
+  --text:#e9eef5; --muted:#8a97a8; --dim:#5f6b7a;
+  --gold:#e8b34b; --gold2:#caa23e; --goldsoft:rgba(232,179,75,.12);
+  --bull:#26d07c; --bear:#f2544b; --neutral:#7c8aa0;
+}
+
+/* ---------- בסיס + אווירה ---------- */
+html, body, [data-testid="stSidebar"], .stApp{
+  font-family:'Heebo',sans-serif; direction:rtl; text-align:right; color:var(--text);
+}
+.stApp{
+  background:
+    radial-gradient(1100px 480px at 80% -8%, rgba(232,179,75,.10), transparent 60%),
+    radial-gradient(900px 500px at 5% 0%, rgba(38,208,124,.06), transparent 55%),
+    linear-gradient(180deg,#0a0e14 0%, #0b1017 100%);
+  background-attachment:fixed;
+}
+[data-testid="stHeader"]{ background:transparent; }
+.block-container{ padding-top:2.2rem; max-width:1280px; }
+
+/* ---------- טיפוגרפיה ---------- */
+h1,h2,h3,h4{ font-family:'Rubik',sans-serif !important; letter-spacing:-.01em; color:var(--text); }
+h1{ font-weight:900; } h2,h3{ font-weight:800; } h4{ font-weight:700; }
+.stApp p, .stApp li, label, .stMarkdown{ font-family:'Heebo',sans-serif; }
+
+/* ---------- טאבים ---------- */
+.stTabs [data-baseweb="tab-list"]{
+  direction:rtl; gap:4px; background:var(--panel); padding:6px;
+  border:1px solid var(--border); border-radius:14px; flex-wrap:wrap;
+}
+.stTabs [data-baseweb="tab"]{
+  border-radius:10px; padding:8px 14px; color:var(--muted);
+  font-family:'Rubik',sans-serif; font-weight:600; font-size:.92rem;
+  transition:all .18s ease; background:transparent;
+}
+/* טקסט התווית יושב ברכיב פנימי — מכריחים אותו לרשת את צבע הטאב */
+.stTabs [data-baseweb="tab"] p, .stTabs [data-baseweb="tab"] div{
+  color:inherit !important; font-weight:inherit !important;
+}
+.stTabs [data-baseweb="tab"]:hover{ color:var(--text); background:rgba(255,255,255,.03); }
+.stTabs [aria-selected="true"]{
+  color:var(--gold) !important;
+  background:var(--goldsoft) !important;
+  box-shadow:inset 0 -2px 0 var(--gold);
+}
+.stTabs [aria-selected="true"] p, .stTabs [aria-selected="true"] div{ color:var(--gold) !important; }
+.stTabs [data-baseweb="tab-highlight"], .stTabs [data-baseweb="tab-border"]{ background:transparent !important; }
+
+/* ---------- כפתורים ---------- */
+.stButton > button, .stDownloadButton > button, .stFormSubmitButton > button{
+  font-family:'Rubik',sans-serif; font-weight:700; border-radius:11px;
+  border:1px solid var(--border2); background:var(--panel2); color:var(--text);
+  transition:transform .12s ease, box-shadow .18s ease, border-color .18s ease;
+}
+.stButton > button:hover, .stDownloadButton > button:hover, .stFormSubmitButton > button:hover{
+  transform:translateY(-1px); border-color:var(--gold); box-shadow:0 6px 18px rgba(0,0,0,.35);
+}
+.stButton > button[kind="primary"], .stFormSubmitButton > button[kind="primary"]{
+  background:linear-gradient(180deg,var(--gold),var(--gold2)); color:#0a0e14;
+  border:none; box-shadow:0 6px 18px rgba(232,179,75,.25);
+}
+.stButton > button[kind="primary"]:hover{ box-shadow:0 8px 24px rgba(232,179,75,.4); }
+
+/* ---------- מטריקות ---------- */
+[data-testid="stMetric"]{
+  background:linear-gradient(180deg,var(--panel),var(--bg2));
+  border:1px solid var(--border); border-radius:14px; padding:14px 16px;
+}
+[data-testid="stMetricLabel"] p{ color:var(--muted); font-weight:600; }
+[data-testid="stMetricValue"]{ font-family:'Rubik',sans-serif; font-weight:800; }
+
+/* ---------- שדות קלט ---------- */
+[data-baseweb="select"] > div, .stNumberInput input, .stTextInput input, [data-baseweb="input"]{
+  background:var(--panel) !important; border-color:var(--border) !important; border-radius:10px !important;
+}
+[data-baseweb="select"] > div:focus-within{ border-color:var(--gold) !important; }
+
+/* ---------- טבלאות (נשארות LTR) ---------- */
+[data-testid="stDataFrame"], [data-testid="stTable"]{
+  direction:ltr; border:1px solid var(--border); border-radius:14px; overflow:hidden;
+}
+
+/* ---------- התראות (info/warning/error) ---------- */
+[data-testid="stAlert"]{ border-radius:12px; border:1px solid var(--border2); }
+
+/* ---------- פס גלילה ---------- */
+::-webkit-scrollbar{ width:11px; height:11px; }
+::-webkit-scrollbar-track{ background:var(--bg); }
+::-webkit-scrollbar-thumb{ background:#26303f; border-radius:8px; border:2px solid var(--bg); }
+::-webkit-scrollbar-thumb:hover{ background:var(--gold2); }
+
+/* ---------- עיגולי הפרמטרים ---------- */
+.circles-wrapper{ display:flex; flex-wrap:wrap; justify-content:center; gap:18px; margin:16px 0; }
+.metric-circle{
+  width:122px; height:122px; border-radius:50%; display:flex; flex-direction:column;
+  justify-content:center; align-items:center; text-align:center; position:relative;
+  box-shadow:0 8px 22px rgba(0,0,0,.35), inset 0 1px 0 rgba(255,255,255,.12);
+  transition:transform .2s ease;
+}
+.metric-circle:hover{ transform:translateY(-4px) scale(1.03); }
+.circle-label{ font-family:'Rubik',sans-serif; font-size:.72rem; font-weight:700; margin-bottom:3px; letter-spacing:.02em; }
+.circle-value{ font-family:'Rubik',sans-serif; font-size:1.15rem; font-weight:800; }
+.circle-status{ font-size:.66rem; opacity:.92; padding:0 6px; }
+.circle-bullish{ background:radial-gradient(circle at 35% 30%,#34e08a,#128a4e); color:#04140b; border:3px solid rgba(52,224,138,.55); }
+.circle-bearish{ background:radial-gradient(circle at 35% 30%,#ff6a62,#b3231c); color:#fff; border:3px solid rgba(242,84,75,.55); }
+.circle-neutral{ background:radial-gradient(circle at 35% 30%,#8b98ab,#3a4658); color:#fff; border:3px solid rgba(140,154,176,.5); }
 </style>
 """, unsafe_allow_html=True)
 
@@ -75,10 +172,24 @@ def get_intraday(symbol, period, interval):
 # כותרת + אזהרות
 # =============================================================================
 st.markdown("""
-<div style="background:linear-gradient(135deg,#0f172a,#1e293b); padding:20px; border-radius:12px;
-     margin-bottom:14px; text-align:center; border:1px solid #334155;">
-  <h1 style="margin:0; color:#f8fafc; font-size:1.9rem;">📈 סורק מניות ומדדים — טווח קצר</h1>
-  <p style="margin:6px 0 0; color:#94a3b8;">ניקוד טכני · דירוג הזדמנויות · רמות כניסה/יציאה · בק-טסט · ארה"ב · ישראל · קריפטו</p>
+<div style="position:relative; background:linear-gradient(135deg,#101722 0%,#0b1017 100%);
+     padding:26px 28px; border-radius:18px; margin-bottom:16px; overflow:hidden;
+     border:1px solid #242f3e; box-shadow:0 16px 40px rgba(0,0,0,.4);">
+  <div style="position:absolute; inset:0 0 auto 0; height:3px;
+       background:linear-gradient(90deg,transparent,#e8b34b,transparent);"></div>
+  <div style="position:absolute; top:-40px; left:-30px; width:200px; height:200px;
+       background:radial-gradient(circle,rgba(232,179,75,.14),transparent 70%);"></div>
+  <div style="display:flex; align-items:center; gap:14px; position:relative;">
+    <div style="font-size:2rem; filter:drop-shadow(0 0 12px rgba(232,179,75,.5));">📈</div>
+    <div>
+      <h1 style="margin:0; font-size:2.05rem; line-height:1.1; letter-spacing:-.02em;
+          background:linear-gradient(90deg,#f5f8fc,#e8b34b); -webkit-background-clip:text;
+          -webkit-text-fill-color:transparent; background-clip:text;">מרכז המסחר החכם</h1>
+      <p style="margin:5px 0 0; color:#8a97a8; font-size:1rem;">
+        סורק ומדרג · ניתוח מנומק · בק-טסט כן · רמות כניסה ויציאה &nbsp;·&nbsp;
+        <span style="color:#e8b34b;">ארה"ב · ישראל · קריפטו</span></p>
+    </div>
+  </div>
 </div>
 """, unsafe_allow_html=True)
 
