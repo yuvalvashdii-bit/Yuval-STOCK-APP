@@ -62,6 +62,8 @@ html, body, [data-testid="stSidebar"], .stApp{
 /* ---------- טיפוגרפיה ---------- */
 h1,h2,h3,h4{ font-family:'Rubik',sans-serif !important; letter-spacing:-.01em; color:var(--text); }
 h1{ font-weight:900; } h2,h3{ font-weight:800; } h4{ font-weight:700; }
+/* מרכוז כל כותרות המסכים (h1/h2/h3). כותרות-משנה קטנות (h4) נשארות בצד */
+[data-testid="stHeading"], .stHeading, h1, h2, h3{ text-align:center !important; }
 .stApp p, .stApp li, label, .stMarkdown{ font-family:'Heebo',sans-serif; }
 
 /* ---------- טאבים ---------- */
