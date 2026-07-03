@@ -193,7 +193,7 @@ def get_regime(market, mode):
 def get_intraday(symbol, period, interval):
     return datamod.fetch_intraday(symbol, period, interval)
 
-@st.cache_data(ttl=300, show_spinner=False)   # מטמון קצר (5 דק') לרענון חי של התיק
+@st.cache_data(ttl=60, show_spinner=False)   # מטמון קצר (דקה) לרענון חי של התיק
 def get_one_live(symbol, mode):
     return datamod.fetch_one(symbol, mode)
 
@@ -502,8 +502,18 @@ with tabs[3]:
     if not st.session_state.holdings:
         st.info("הוסף פוזיציה למעלה כדי לראות מעקב חי.")
     else:
-        auto = st.toggle("🔄 רענון אוטומטי כל 5 דקות (כל עוד הדף פתוח)", value=False,
-                         help="מושך שער עדכני (בהשהיה ~15 דק') כל 5 דקות — בלי צורך ללחוץ.")
+        rc1, rc2, rc3 = st.columns([1.4, 1, 1])
+        with rc1:
+            auto = st.toggle("🔄 רענון אוטומטי", value=False,
+                             help="מרענן את הטבלה לבד, כל עוד הדף פתוח. שער בהשהיה ~15 דק'.")
+        with rc2:
+            _iv = {"30 שניות": 30, "דקה": 60, "5 דקות": 300}
+            iv_label = st.selectbox("תדירות", list(_iv), index=1, disabled=not auto,
+                                    label_visibility="collapsed")
+        with rc3:
+            if st.button("🔄 רענן עכשיו", use_container_width=True):
+                get_one_live.clear()
+                st.rerun()
 
         def _live_portfolio():
             fetch = get_one_live if auto else get_one
@@ -522,13 +532,16 @@ with tabs[3]:
                     "למכור?": ("🔴 " + ev["reason"]) if ev["sell"] else (ev["reason"] or "החזק"),
                 })
             ts = pd.Timestamp.now(tz="Asia/Jerusalem").strftime("%H:%M:%S")
-            st.caption(f"🕒 עודכן {ts} (שער בהשהיה ~15 דק')"
-                       + (" · רענון אוטומטי פעיל 🟢" if auto else " · לחץ/רענן לעדכון"))
+            badge_bg, badge_txt = (("#14532d", f"🟢 חי · מתעדכן כל {iv_label} · עודכן {ts}")
+                                   if auto else ("#334155", f"⚪ ידני · עודכן {ts}"))
+            st.markdown(f"<div style='background:{badge_bg}; color:#fff; display:inline-block; "
+                        f"padding:4px 12px; border-radius:20px; font-weight:600; font-size:.85rem; "
+                        f"margin-bottom:8px;'>{badge_txt}</div>", unsafe_allow_html=True)
             st.metric("רווח/הפסד כולל בתיק", f"{total:+,.2f}")
             st.dataframe(pd.DataFrame(rows), use_container_width=True, height=360)
 
-        # fragment עם run_every מרענן את הטבלה לבד כל 5 דקות כשהמתג דלוק
-        st.fragment(run_every=(300 if auto else None))(_live_portfolio)()
+        # fragment עם run_every מרענן את הטבלה לבד לפי התדירות שנבחרה
+        st.fragment(run_every=(_iv[iv_label] if auto else None))(_live_portfolio)()
 
         # מחיקת פוזיציה בודדת
         del_col1, del_col2 = st.columns([3, 1])
