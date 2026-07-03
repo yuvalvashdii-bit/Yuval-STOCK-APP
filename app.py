@@ -124,6 +124,17 @@ h4, h5, h6{ text-align:right !important; }
 .stNumberInput [data-baseweb="input"], [data-testid="stNumberInputContainer"]{ background:var(--panel) !important; }
 .stNumberInput button{ background:var(--panel2) !important; color:var(--text) !important; border-color:var(--border) !important; }
 
+/* טקסט שמקלידים בשדות חיפוש/בחירה — בהיר וקריא */
+[data-baseweb="select"] input, [data-baseweb="input"] input,
+.stTextInput input, .stNumberInput input, [data-baseweb="select"] > div{
+  color:var(--text) !important; -webkit-text-fill-color:var(--text) !important;
+}
+input::placeholder, textarea::placeholder{ color:var(--dim) !important; -webkit-text-fill-color:var(--dim) !important; opacity:1 !important; }
+/* הרשימה הנפתחת של האפשרויות */
+[data-baseweb="popover"] ul, [data-baseweb="menu"], [role="listbox"]{ background:var(--panel2) !important; }
+[data-baseweb="popover"] [role="option"], [data-baseweb="menu"] li, [role="option"]{ color:var(--text) !important; }
+[role="option"]:hover, [data-baseweb="menu"] li:hover{ background:var(--goldsoft) !important; }
+
 /* ---------- קריאוּת טקסט: תוויות, רדיו, כיתובים ---------- */
 label, [data-testid="stWidgetLabel"] p, [data-testid="stWidgetLabel"] label{ color:var(--text) !important; }
 .stRadio label p, .stCheckbox label p, [role="radiogroup"] label{ color:var(--text) !important; }
@@ -181,6 +192,10 @@ def get_regime(market, mode):
 @st.cache_data(ttl=300, show_spinner=False)
 def get_intraday(symbol, period, interval):
     return datamod.fetch_intraday(symbol, period, interval)
+
+@st.cache_data(ttl=300, show_spinner=False)   # מטמון קצר (5 דק') לרענון חי של התיק
+def get_one_live(symbol, mode):
+    return datamod.fetch_one(symbol, mode)
 
 # =============================================================================
 # כותרת + אזהרות
@@ -487,23 +502,33 @@ with tabs[3]:
     if not st.session_state.holdings:
         st.info("הוסף פוזיציה למעלה כדי לראות מעקב חי.")
     else:
-        rows, total = [], 0.0
-        for h in st.session_state.holdings:
-            res = engine.analyze(get_one(h["ticker"], mode), mode)
-            if not res:
-                continue
-            ev = pf.evaluate_holding(h, res)
-            total += ev["pnl_abs"]
-            rows.append({
-                "טיקר": h["ticker"], "שם": config.name_he(h["ticker"]),
-                "קנייה": h["entry_price"], "כמות": h["qty"], "מחיר נוכחי": ev["price"],
-                "רווח/הפסד": ev["pnl_abs"], "%": ev["pnl_pct"], "ניקוד": ev["score"],
-                "איתות": ev["signal"], "סטופ": ev["stop"],
-                "למכור?": ("🔴 " + ev["reason"]) if ev["sell"] else (ev["reason"] or "החזק"),
-            })
-        pdf = pd.DataFrame(rows)
-        st.metric("רווח/הפסד כולל בתיק", f"{total:+,.2f}")
-        st.dataframe(pdf, use_container_width=True, height=360)
+        auto = st.toggle("🔄 רענון אוטומטי כל 5 דקות (כל עוד הדף פתוח)", value=False,
+                         help="מושך שער עדכני (בהשהיה ~15 דק') כל 5 דקות — בלי צורך ללחוץ.")
+
+        def _live_portfolio():
+            fetch = get_one_live if auto else get_one
+            rows, total = [], 0.0
+            for h in st.session_state.holdings:
+                res = engine.analyze(fetch(h["ticker"], mode), mode)
+                if not res:
+                    continue
+                ev = pf.evaluate_holding(h, res)
+                total += ev["pnl_abs"]
+                rows.append({
+                    "טיקר": h["ticker"], "שם": config.name_he(h["ticker"]),
+                    "קנייה": h["entry_price"], "כמות": h["qty"], "מחיר נוכחי": ev["price"],
+                    "רווח/הפסד": ev["pnl_abs"], "%": ev["pnl_pct"], "ניקוד": ev["score"],
+                    "איתות": ev["signal"], "סטופ": ev["stop"],
+                    "למכור?": ("🔴 " + ev["reason"]) if ev["sell"] else (ev["reason"] or "החזק"),
+                })
+            ts = pd.Timestamp.now(tz="Asia/Jerusalem").strftime("%H:%M:%S")
+            st.caption(f"🕒 עודכן {ts} (שער בהשהיה ~15 דק')"
+                       + (" · רענון אוטומטי פעיל 🟢" if auto else " · לחץ/רענן לעדכון"))
+            st.metric("רווח/הפסד כולל בתיק", f"{total:+,.2f}")
+            st.dataframe(pd.DataFrame(rows), use_container_width=True, height=360)
+
+        # fragment עם run_every מרענן את הטבלה לבד כל 5 דקות כשהמתג דלוק
+        st.fragment(run_every=(300 if auto else None))(_live_portfolio)()
 
         # מחיקת פוזיציה בודדת
         del_col1, del_col2 = st.columns([3, 1])
